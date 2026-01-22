@@ -62,5 +62,30 @@ export const useClientesStore = defineStore('clientes', {
         this.loading = false
       }
     },
+
+    // Actualizar un cliente existente
+    async actualizarCliente(id, datos) {
+      this.loading = true
+      this.error = null
+
+      try {
+        const response = await api.put('/clientes.php', { id, ...datos })
+
+        if (response.data.success) {
+          // Recargar la lista de clientes después de actualizar
+          await this.fetchClientes()
+          return { success: true, message: 'Cliente actualizado exitosamente' }
+        } else {
+          this.error = response.data.error || 'Error al actualizar el cliente'
+          return { success: false, error: this.error }
+        }
+      } catch (error) {
+        console.error('Error al actualizar cliente:', error)
+        this.error = error.message || 'Error de conexión con el servidor'
+        return { success: false, error: this.error }
+      } finally {
+        this.loading = false
+      }
+    },
   },
 })

@@ -30,8 +30,78 @@
         <div class="header-actions">
           <!-- Notificaciones -->
           <q-btn flat dense round icon="notifications" class="action-btn-cyber">
-            <q-badge color="cyan" floating>3</q-badge>
+            <q-badge v-if="notificacionesStore.noLeidas > 0" color="cyan" floating>
+              {{ notificacionesStore.noLeidas }}
+            </q-badge>
             <q-tooltip>Notificaciones</q-tooltip>
+
+            <!-- Menú de notificaciones -->
+            <q-menu class="glass-menu notifications-menu" max-width="400px">
+              <q-list class="notifications-list">
+                <!-- Header del menú -->
+                <q-item class="notifications-header">
+                  <q-item-section>
+                    <div class="text-h6">Notificaciones</div>
+                  </q-item-section>
+                  <q-item-section side v-if="notificacionesStore.noLeidas > 0">
+                    <q-btn
+                      flat
+                      dense
+                      size="sm"
+                      label="Marcar todas"
+                      @click="notificacionesStore.marcarTodasComoLeidas()"
+                      class="mark-all-btn"
+                    />
+                  </q-item-section>
+                </q-item>
+
+                <q-separator class="cyber-separator" />
+
+                <!-- Lista de notificaciones -->
+                <div class="notifications-scroll">
+                  <q-item
+                    v-for="notif in notificacionesStore.todas"
+                    :key="notif.id"
+                    clickable
+                    @click="notificacionesStore.marcarComoLeida(notif.id)"
+                    :class="{ 'notification-unread': !notif.leida }"
+                    class="notification-item"
+                  >
+                    <q-item-section avatar>
+                      <q-avatar
+                        :color="getNotificationColor(notif.tipo)"
+                        text-color="white"
+                        :icon="notif.icono"
+                      />
+                    </q-item-section>
+
+                    <q-item-section>
+                      <q-item-label class="notification-title">
+                        {{ notif.titulo }}
+                      </q-item-label>
+                      <q-item-label caption class="notification-message">
+                        {{ notif.mensaje }}
+                      </q-item-label>
+                      <q-item-label caption class="notification-time">
+                        {{ formatearTiempo(notif.fecha) }}
+                      </q-item-label>
+                    </q-item-section>
+
+                    <q-item-section side v-if="!notif.leida">
+                      <div class="unread-dot"></div>
+                    </q-item-section>
+                  </q-item>
+
+                  <!-- Mensaje cuando no hay notificaciones -->
+                  <q-item v-if="notificacionesStore.todas.length === 0" class="no-notifications">
+                    <q-item-section class="text-center">
+                      <q-icon name="notifications_none" size="48px" color="grey-5" />
+                      <div class="text-grey-5 q-mt-sm">No hay notificaciones</div>
+                    </q-item-section>
+                  </q-item>
+                </div>
+              </q-list>
+            </q-menu>
           </q-btn>
 
           <!-- Perfil de usuario -->
@@ -71,7 +141,7 @@
       show-if-above
       bordered
       class="glass-drawer"
-      :style="{ backgroundColor: '#050a14' }"
+      :style="{ backgroundColor: 'var(--sidebar-bg)' }"
     >
       <!-- Header del Drawer -->
       <div class="drawer-header">
@@ -132,6 +202,9 @@
 <script setup>
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useNotificacionesStore } from 'src/stores/notificaciones'
+
+const notificacionesStore = useNotificacionesStore()
 
 const route = useRoute()
 const leftDrawerOpen = ref(false)
@@ -163,6 +236,12 @@ const menuItems = [
     path: '/cotizaciones',
   },
   {
+    label: 'Proyectos',
+    caption: 'Gestión y presupuestos',
+    icon: 'engineering',
+    path: '/proyectos',
+  },
+  {
     label: 'Nueva Cotización',
     caption: 'Crear cotización',
     icon: 'point_of_sale',
@@ -183,25 +262,40 @@ function toggleLeftDrawer() {
 function isActiveRoute(path) {
   return route.path === path
 }
+
+// Formatear tiempo relativo
+function formatearTiempo(fecha) {
+  const ahora = new Date()
+  const diff = ahora - fecha
+  const minutos = Math.floor(diff / 1000 / 60)
+  const horas = Math.floor(minutos / 60)
+  const dias = Math.floor(horas / 24)
+
+  if (minutos < 1) return 'Ahora'
+  if (minutos < 60) return `Hace ${minutos} min`
+  if (horas < 24) return `Hace ${horas}h`
+  if (dias < 7) return `Hace ${dias}d`
+  return fecha.toLocaleDateString()
+}
+
+// Obtener color según tipo de notificación
+function getNotificationColor(tipo) {
+  const colores = {
+    success: 'positive',
+    error: 'negative',
+    warning: 'warning',
+    info: 'info',
+  }
+  return colores[tipo] || 'info'
+}
 </script>
 
 <style lang="scss" scoped>
 // ==========================================
-// VARIABLES Y PALETA DE COLORES CYBERPUNK
-// ==========================================
-$bg-primary: #050a14;
-$blue-primary: #1e3a8a;
-$blue-bright: #3b82f6;
-$cyan-neon: #00e5ff;
-$white: #ffffff;
-$gray-light: #e2e8f0;
-$gray-medium: #64748b;
-
-// ==========================================
 // LAYOUT PRINCIPAL
 // ==========================================
 .cyberpunk-layout {
-  background: $bg-primary;
+  background: var(--bg-app);
 
   // Patrón de fondo tecnológico sutil
   &::before {
@@ -212,11 +306,12 @@ $gray-medium: #64748b;
     width: 100%;
     height: 100%;
     background-image:
-      linear-gradient(rgba($cyan-neon, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba($cyan-neon, 0.03) 1px, transparent 1px);
+      linear-gradient(var(--border-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
     background-size: 50px 50px;
     pointer-events: none;
     z-index: 0;
+    opacity: 0.3;
   }
 }
 
@@ -224,13 +319,11 @@ $gray-medium: #64748b;
 // HEADER CON EFECTO GLASS
 // ==========================================
 .glass-header {
-  background: linear-gradient(135deg, rgba($blue-primary, 0.15), rgba($cyan-neon, 0.08)) !important;
+  background: var(--glass-color) !important;
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border-bottom: 1px solid rgba($white, 0.1);
-  box-shadow:
-    0 8px 32px 0 rgba($cyan-neon, 0.1),
-    inset 0 1px 0 0 rgba($white, 0.1);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
 
 .toolbar-glass {
@@ -240,12 +333,12 @@ $gray-medium: #64748b;
 
 // Botón de menú con efecto cyber
 .menu-btn-cyber {
-  color: $cyan-neon;
+  color: var(--accent-color);
   transition: all 0.3s ease;
 
   &:hover {
-    color: $white;
-    box-shadow: 0 0 20px rgba($cyan-neon, 0.6);
+    color: var(--text-primary);
+    box-shadow: 0 0 20px var(--accent-glow);
     transform: scale(1.1);
   }
 }
@@ -261,11 +354,11 @@ $gray-medium: #64748b;
 .logo-img {
   height: 36px;
   width: auto;
-  filter: drop-shadow(0 0 8px rgba($cyan-neon, 0.5));
+  filter: drop-shadow(0 0 8px var(--accent-glow));
   transition: filter 0.3s ease;
 
   &:hover {
-    filter: drop-shadow(0 0 16px rgba($cyan-neon, 0.8));
+    filter: drop-shadow(0 0 16px var(--accent-glow));
   }
 }
 
@@ -277,22 +370,22 @@ $gray-medium: #64748b;
   letter-spacing: 0.5px;
 
   .brand-name {
-    color: $white;
+    color: var(--text-primary);
     font-size: 18px;
-    text-shadow: 0 0 10px rgba($cyan-neon, 0.5);
+    text-shadow: 0 0 10px var(--accent-glow);
   }
 
   .separator {
-    color: $cyan-neon;
+    color: var(--accent-color);
     font-weight: 300;
     opacity: 0.6;
   }
 
   .app-name {
-    color: $cyan-neon;
+    color: var(--accent-color);
     font-size: 16px;
     font-weight: 500;
-    text-shadow: 0 0 10px rgba($cyan-neon, 0.8);
+    text-shadow: 0 0 10px var(--accent-glow);
   }
 }
 
@@ -304,21 +397,23 @@ $gray-medium: #64748b;
 }
 
 .action-btn-cyber {
-  color: $gray-light;
+  color: var(--text-primary);
+  opacity: 0.8;
   transition: all 0.3s ease;
   position: relative;
 
   &:hover {
-    color: $cyan-neon;
-    box-shadow: 0 0 15px rgba($cyan-neon, 0.4);
+    color: var(--accent-color);
+    opacity: 1;
+    box-shadow: 0 0 15px var(--accent-glow);
   }
 
   &.profile-btn {
-    border: 1px solid rgba($cyan-neon, 0.3);
+    border: 1px solid var(--border-color);
 
     &:hover {
-      border-color: $cyan-neon;
-      box-shadow: 0 0 20px rgba($cyan-neon, 0.6);
+      border-color: var(--accent-color);
+      box-shadow: 0 0 20px var(--accent-glow);
     }
   }
 }
@@ -327,50 +422,26 @@ $gray-medium: #64748b;
 // DRAWER CON EFECTO GLASS
 // ==========================================
 .glass-drawer {
-  background: $bg-primary !important;
-  border-right: 1px solid rgba($cyan-neon, 0.2) !important;
-  box-shadow: 4px 0 24px rgba($cyan-neon, 0.15);
+  background: var(--sidebar-bg) !important;
+  border-right: 1px solid var(--border-color) !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
 
   // Forzar fondo oscuro en elementos internos de Quasar
   :deep(.q-drawer__content) {
-    background: $bg-primary !important;
+    background: transparent !important;
   }
 
   :deep(.q-scrollarea__content) {
-    background: $bg-primary !important;
-  }
-
-  // Overlay con efecto glass
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(
-      180deg,
-      rgba($blue-primary, 0.15),
-      transparent 30%,
-      transparent 70%,
-      rgba($bg-primary, 0.3)
-    );
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  // Asegurar que el contenido esté sobre el overlay
-  > * {
-    position: relative;
-    z-index: 1;
+    background: transparent !important;
   }
 }
 
 // Header del drawer
 .drawer-header {
   padding: 24px 16px;
-  border-bottom: 1px solid rgba($cyan-neon, 0.2);
-  background: rgba($blue-primary, 0.2);
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(var(--accent-color), 0.1); // Fallback assumption
+  background: var(--glass-color);
   position: relative;
   z-index: 1;
 }
@@ -379,15 +450,15 @@ $gray-medium: #64748b;
   display: flex;
   align-items: center;
   gap: 12px;
-  color: $white;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
 
   .drawer-icon {
-    color: $cyan-neon;
-    filter: drop-shadow(0 0 8px rgba($cyan-neon, 0.8));
+    color: var(--accent-color);
+    filter: drop-shadow(0 0 8px var(--accent-glow));
   }
 }
 
@@ -411,13 +482,14 @@ $gray-medium: #64748b;
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba($cyan-neon, 0.05), transparent);
+    background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
     transform: translateX(-100%);
     transition: transform 0.6s ease;
+    opacity: 0.1;
   }
 
   &:hover {
-    background: rgba($blue-bright, 0.15);
+    background: var(--glass-color);
     transform: translateX(4px);
 
     &::before {
@@ -425,55 +497,59 @@ $gray-medium: #64748b;
     }
 
     .nav-icon {
-      color: $cyan-neon;
+      color: var(--accent-color);
       transform: scale(1.1);
     }
 
     .nav-label {
-      color: $white;
+      color: var(--text-primary);
     }
   }
 
-  // Estado activo con resplandor neón
+  // Estado activo
   &.active-route {
-    background: linear-gradient(90deg, rgba($cyan-neon, 0.2), rgba($blue-bright, 0.15));
-    border: 1px solid rgba($cyan-neon, 0.4);
+    background: rgba(var(--accent-color), 0.1); // Not exact but close proxy if we can't use rgb var
+    background: var(--glass-color);
+    border: 1px solid var(--accent-color);
     box-shadow:
-      0 0 20px rgba($cyan-neon, 0.4),
-      inset 0 0 20px rgba($cyan-neon, 0.1);
+      0 0 20px var(--accent-glow),
+      inset 0 0 20px var(--accent-glow);
 
     .nav-icon {
-      color: $cyan-neon;
-      filter: drop-shadow(0 0 8px rgba($cyan-neon, 0.8));
+      color: var(--accent-color);
+      filter: drop-shadow(0 0 8px var(--accent-glow));
     }
 
     .nav-label {
-      color: $cyan-neon;
+      color: var(--accent-color);
       font-weight: 600;
-      text-shadow: 0 0 10px rgba($cyan-neon, 0.5);
+      text-shadow: 0 0 10px var(--accent-glow);
     }
 
     .nav-caption {
-      color: rgba($cyan-neon, 0.7);
+      color: var(--accent-color);
+      opacity: 0.7;
     }
   }
 }
 
 .nav-icon {
-  color: $gray-light;
+  color: var(--text-primary);
+  opacity: 0.7;
   transition: all 0.3s ease;
   font-size: 24px;
 }
 
 .nav-label {
-  color: $gray-light;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   transition: all 0.3s ease;
 }
 
 .nav-caption {
-  color: $gray-medium;
+  color: var(--text-primary);
+  opacity: 0.5;
   font-size: 11px;
   margin-top: 2px;
 }
@@ -482,19 +558,19 @@ $gray-medium: #64748b;
 .active-indicator {
   width: 4px;
   height: 24px;
-  background: $cyan-neon;
+  background: var(--accent-color);
   border-radius: 2px;
-  box-shadow: 0 0 10px rgba($cyan-neon, 0.8);
+  box-shadow: 0 0 10px var(--accent-glow);
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
 @keyframes pulse-glow {
   0%,
   100% {
-    box-shadow: 0 0 10px rgba($cyan-neon, 0.8);
+    box-shadow: 0 0 10px var(--accent-glow);
   }
   50% {
-    box-shadow: 0 0 20px rgba($cyan-neon, 1);
+    box-shadow: 0 0 20px var(--accent-glow);
   }
 }
 
@@ -505,8 +581,8 @@ $gray-medium: #64748b;
   left: 0;
   right: 0;
   padding: 16px;
-  border-top: 1px solid rgba($cyan-neon, 0.2);
-  background: rgba($bg-primary, 0.95);
+  border-top: 1px solid var(--border-color);
+  background: var(--glass-color);
   backdrop-filter: blur(8px);
   z-index: 1;
 }
@@ -515,7 +591,8 @@ $gray-medium: #64748b;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: $gray-medium;
+  color: var(--text-primary);
+  opacity: 0.5;
   font-size: 12px;
   margin-bottom: 8px;
 }
@@ -524,16 +601,16 @@ $gray-medium: #64748b;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: $gray-light;
+  color: var(--text-primary);
   font-size: 11px;
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
-  background: $cyan-neon;
+  background: var(--accent-color);
   border-radius: 50%;
-  box-shadow: 0 0 10px rgba($cyan-neon, 0.8);
+  box-shadow: 0 0 10px var(--accent-glow);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
@@ -553,51 +630,167 @@ $gray-medium: #64748b;
 // MENÚ DESPLEGABLE CON EFECTO GLASS
 // ==========================================
 .glass-menu {
-  background: linear-gradient(135deg, rgba($blue-primary, 0.4), rgba($bg-primary, 0.98)) !important;
+  background: var(--glass-color) !important;
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba($cyan-neon, 0.2);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 8px;
   min-width: 200px;
-  box-shadow: 0 8px 32px rgba($cyan-neon, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 
   .q-item {
     border-radius: 8px;
-    color: $gray-light;
+    color: var(--text-primary);
     transition: all 0.3s ease;
     margin-bottom: 4px;
 
     &:hover {
-      background: rgba($cyan-neon, 0.15);
-      color: $cyan-neon;
-      box-shadow: 0 0 10px rgba($cyan-neon, 0.3);
+      background: rgba(0, 0, 0, 0.05); // Simple hover
+      color: var(--accent-color);
+      box-shadow: 0 0 10px var(--accent-glow);
     }
 
     .q-icon {
-      color: $gray-light;
+      color: var(--text-primary);
+      opacity: 0.7;
     }
 
     &:hover .q-icon {
-      color: $cyan-neon;
+      color: var(--accent-color);
+      opacity: 1;
     }
   }
 
   .q-item__section--main {
-    color: $gray-light;
+    color: var(--text-primary);
   }
 }
 
 .cyber-separator {
-  background: rgba($cyan-neon, 0.2);
+  background: var(--border-color);
   margin: 8px 0;
+}
+
+// ==========================================
+// MENÚ DE NOTIFICACIONES
+// ==========================================
+.notifications-menu {
+  max-height: 500px;
+}
+
+.notifications-list {
+  padding: 0;
+}
+
+.notifications-header {
+  padding: 16px;
+  background: var(--glass-color);
+  border-bottom: 1px solid var(--border-color);
+
+  .text-h6 {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .mark-all-btn {
+    color: var(--accent-color);
+    font-size: 11px;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+  }
+}
+
+.notifications-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+
+  // Scrollbar personalizado
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 3px;
+    opacity: 0.5;
+
+    &:hover {
+      background: var(--accent-color);
+    }
+  }
+}
+
+.notification-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: var(--glass-color);
+    transform: translateX(4px);
+  }
+
+  &.notification-unread {
+    background: rgba(
+      0,
+      229,
+      255,
+      0.05
+    ); // Keep legacy hardcode or try to adapt? Let's use accent glow
+    border-left: 3px solid var(--accent-color);
+  }
+}
+
+.notification-title {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.notification-message {
+  color: var(--text-primary);
+  opacity: 0.8;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.notification-time {
+  color: var(--text-primary);
+  opacity: 0.6;
+  font-size: 11px;
+}
+
+.unread-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent-color);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent-glow);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.no-notifications {
+  color: var(--text-primary);
+  opacity: 0.5;
+  padding: 40px 20px;
+  text-align: center;
 }
 
 // ==========================================
 // CONTENEDOR DE PÁGINAS
 // ==========================================
 .page-container-cyber {
-  background: $bg-primary;
+  background: var(--bg-app);
 }
 
 // ==========================================
@@ -632,6 +825,37 @@ $gray-medium: #64748b;
     .separator {
       display: none;
     }
+  }
+}
+
+// ==========================================
+// ESTILOS DE IMPRESIÓN
+// ==========================================
+@media print {
+  .q-drawer,
+  .q-header,
+  .q-page-sticky,
+  .q-btn,
+  .q-dialog {
+    display: none !important;
+  }
+
+  .q-page-container {
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+  }
+
+  .cyberpunk-layout {
+    background: white !important;
+
+    &::before {
+      display: none !important;
+    }
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
   }
 }
 </style>
